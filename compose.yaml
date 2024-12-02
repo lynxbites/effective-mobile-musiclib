@@ -1,6 +1,6 @@
 networks:
-    internal:
-      driver: bridge
+  local:
+    driver: bridge
 
 services:
   postgres:
@@ -13,17 +13,24 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
        - ./postgres:/data/postgres/
-    networks:
-      - internal
+    networks: 
+       - local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   golang:
     container_name: go
     build: 
       context: ./
       dockerfile: dockerfile
     depends_on:
-      - postgres
-    networks:
-      - internal
-
+      postgres:
+        condition: service_healthy
+      
+    networks: 
+      - local
 
 

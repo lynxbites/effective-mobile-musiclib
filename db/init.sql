@@ -1,4 +1,8 @@
-CREATE USER user;
-
-CREATE DATABASE songs;
-GRANT ALL PRIVILEGES ON DATABASE songs TO user;
+CREATE DATABASE db;
+CREATE TABLE songs (
+    "Group" TEXT,
+    "Name" TEXT,
+    "ReleaseDate" DATE,
+    "Lyrics" TEXT,
+    "Link" TEXT
+)
