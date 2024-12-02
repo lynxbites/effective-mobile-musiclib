@@ -11,12 +11,13 @@ services:
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
     volumes:
        - ./postgres:/data/postgres/
     networks: 
        - local
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user"]
+      test: ["CMD-SHELL", "pg_isready -d db -U user"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,4 +34,6 @@ services:
     networks: 
       - local
 
-
+volumes:
+  postgres:
+    driver: local

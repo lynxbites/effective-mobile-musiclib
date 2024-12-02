@@ -7,8 +7,17 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/joho/godotenv"
 )
+
+type Song struct {
+	group       string
+	name        string
+	releaseDate pgtype.Date
+	lyrics      string
+	link        string
+}
 
 func main() {
 	err := godotenv.Load()
@@ -27,6 +36,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn.Exec(context.Background(), "INSERT INTO songs (Group, Name, Lyrics, Link, Date ) VALUES ('group', 'name', 'text', 'https', '2000-01-01')")
+	_, err = conn.Exec(context.Background(), "INSERT INTO songs VALUES ('group', 'name', '2000-01-01', 'text', 'link')")
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	query, err := conn.Query(context.Background(), "SELECT * FROM public.songs")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var song Song
+	for query.Next() {
+		err := query.Scan(&song.group, &song.name, &song.releaseDate, &song.lyrics, &song.link)
+		if err != nil {
+			log.Printf("Encountered error when scanning row: %v", err)
+			break
+		}
+	}
+	fmt.Printf("song: %v\n", song)
+	fmt.Printf("time: %v\n", song.releaseDate.Time.UTC())
 }

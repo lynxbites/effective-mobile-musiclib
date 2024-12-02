@@ -1,4 +1,3 @@
-CREATE DATABASE db;
 CREATE TABLE songs (
     "Group" TEXT,
     "Name" TEXT,
