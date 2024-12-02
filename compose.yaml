@@ -1,0 +1,29 @@
+networks:
+    internal:
+      driver: bridge
+
+services:
+  postgres:
+    container_name: postgres
+    build: 
+      context: ./db
+      dockerfile: dockerfile
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+       - ./postgres:/data/postgres/
+    networks:
+      - internal
+  golang:
+    container_name: go
+    build: 
+      context: ./
+      dockerfile: dockerfile
+    depends_on:
+      - postgres
+    networks:
+      - internal
+
+
+
