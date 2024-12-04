@@ -1,0 +1,145 @@
+basePath: /api/
+definitions:
+  musiclib.Song:
+    properties:
+      group:
+        type: string
+      id:
+        type: string
+      link:
+        type: string
+      name:
+        type: string
+      releaseDate:
+        $ref: '#/definitions/pgtype.Date'
+      text:
+        type: string
+    type: object
+  pgtype.Date:
+    properties:
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      time:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  pgtype.InfinityModifier:
+    enum:
+    - 1
+    - 0
+    - -1
+    type: integer
+    x-enum-varnames:
+    - Infinity
+    - Finite
+    - NegativeInfinity
+host: localhost:8000
+info:
+  contact: {}
+  description: This is a simple swagger for musiclib.
+  title: MusicLib
+  version: "0.1"
+paths:
+  /v1/songs:
+    get:
+      description: Gets song from db
+      parameters:
+      - description: string valid
+        in: query
+        name: sort
+        type: string
+      - description: int > 0
+        in: query
+        name: page
+        type: integer
+      - description: int > 0
+        in: query
+        name: items
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/musiclib.Song'
+            type: array
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal error
+      summary: Get song
+      tags:
+      - Songs
+    post:
+      consumes:
+      - application/json
+      description: Posts song to db
+      parameters:
+      - description: Song JSON Object
+        in: body
+        name: json
+        required: true
+        schema:
+          example: "{\n\t\"group\":\"Johnny Mercer\",\n\t\"name\":\"Personality\",\n\t\"releaseDate\":\"1946-12-14\",\n\t\"text\":\"When
+            Madam Pompadour was on a ballroom floor\n\tSaid all the gentlemen, \"Obviously\"\n\t\"The
+            madam has the cutest personality\"\n\tAnd think of all the books about
+            do Barry's looks\n\tWhat was it made her the toast of Paree?\n\tShe had
+            a well-developed personality\",\n\t\"https://www.youtube.com/watch?v=c1L6ZdbL5a0\":\"rer\"\n}"
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+        "409":
+          description: Conflict
+        "500":
+          description: Internal error
+      summary: Post song
+      tags:
+      - Songs
+  /v1/songs/{songId}:
+    delete:
+      description: deletes song from db
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "204":
+          description: OK
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "500":
+          description: Internal error
+      summary: Delete song
+      tags:
+      - Songs
+    get:
+      description: Gets song from db
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/musiclib.Song'
+            type: array
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "500":
+          description: Internal error
+      summary: Get song
+      tags:
+      - Songs
+swagger: "2.0"

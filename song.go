@@ -7,6 +7,14 @@ type Song struct {
 	Group       string      `json:"group"`
 	Name        string      `json:"name"`
 	ReleaseDate pgtype.Date `json:"releaseDate"`
-	Lyrics      string      `json:"lyrics"`
+	Text        string      `json:"text"`
 	Link        string      `json:"link"`
+}
+
+type SongPost struct {
+	Group       *string      `json:"group"`
+	Name        *string      `json:"name"`
+	ReleaseDate *pgtype.Date `json:"releaseDate"`
+	Text        *string      `json:"text"`
+	Link        *string      `json:"link"`
 }
