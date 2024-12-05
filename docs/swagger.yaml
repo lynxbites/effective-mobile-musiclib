@@ -11,29 +11,27 @@ definitions:
       name:
         type: string
       releaseDate:
-        $ref: '#/definitions/pgtype.Date'
+        type: string
       text:
         type: string
     type: object
-  pgtype.Date:
+  musiclib.SongPaginated:
     properties:
-      infinityModifier:
-        $ref: '#/definitions/pgtype.InfinityModifier'
-      time:
+      group:
         type: string
-      valid:
-        type: boolean
+      id:
+        type: string
+      link:
+        type: string
+      name:
+        type: string
+      releaseDate:
+        type: string
+      text:
+        items:
+          type: string
+        type: array
     type: object
-  pgtype.InfinityModifier:
-    enum:
-    - 1
-    - 0
-    - -1
-    type: integer
-    x-enum-varnames:
-    - Infinity
-    - Finite
-    - NegativeInfinity
 host: localhost:8000
 info:
   contact: {}
@@ -45,7 +43,7 @@ paths:
     get:
       description: Gets song from db
       parameters:
-      - description: string valid
+      - description: id/group/name/date/text/link
         in: query
         name: sort
         type: string
@@ -83,11 +81,8 @@ paths:
         name: json
         required: true
         schema:
-          example: "{\n\t\"group\":\"Johnny Mercer\",\n\t\"name\":\"Personality\",\n\t\"releaseDate\":\"1946-12-14\",\n\t\"text\":\"When
-            Madam Pompadour was on a ballroom floor\n\tSaid all the gentlemen, \"Obviously\"\n\t\"The
-            madam has the cutest personality\"\n\tAnd think of all the books about
-            do Barry's looks\n\tWhat was it made her the toast of Paree?\n\tShe had
-            a well-developed personality\",\n\t\"https://www.youtube.com/watch?v=c1L6ZdbL5a0\":\"rer\"\n}"
+          example: '{"group":"sample", "name":"mamedsd", "releaseDate":"2030-12-12",
+            "text":"ss", "link":"sss"}'
           type: string
       produces:
       - application/json
@@ -106,6 +101,12 @@ paths:
   /v1/songs/{songId}:
     delete:
       description: deletes song from db
+      parameters:
+      - description: id
+        in: path
+        name: songId
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -124,15 +125,27 @@ paths:
       - Songs
     get:
       description: Gets song from db
+      parameters:
+      - description: int >= 0
+        in: query
+        name: offset
+        type: integer
+      - description: int > 0
+        in: query
+        name: limit
+        type: integer
+      - description: id
+        in: path
+        name: songId
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/musiclib.Song'
-            type: array
+            $ref: '#/definitions/musiclib.SongPaginated'
         "400":
           description: Bad Request
         "404":
@@ -142,4 +155,36 @@ paths:
       summary: Get song
       tags:
       - Songs
+    patch:
+      description: Patch song from db
+      parameters:
+      - description: Song JSON Object
+        in: body
+        name: json
+        required: true
+        schema:
+          example: '{"group":"Patched", "name":"PatchedName", "releaseDate":"2023-12-12",
+            "text":"PatchedText", "link":"PatchedLink"}'
+          type: string
+      - description: id
+        in: path
+        name: songId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "500":
+          description: Internal error
+      summary: Patch song
+      tags:
+      - Songs
+schemes:
+- http
 swagger: "2.0"

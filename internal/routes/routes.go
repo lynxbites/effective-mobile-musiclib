@@ -9,8 +9,11 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/lynxbites/musiclib"
 	"github.com/lynxbites/musiclib/internal/db"
 	_ "github.com/swaggo/http-swagger/example/go-chi/docs"
@@ -21,9 +24,18 @@ func NewRouter() *chi.Mux {
 	router := chi.NewRouter()
 
 	router.Route("/api/v1/songs", func(r chi.Router) {
+		r.Use(middleware.Logger)
+		r.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   []string{"http://*"},
+			AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+			ExposedHeaders:   []string{"Link"},
+			AllowCredentials: false,
+			MaxAge:           360,
+		}))
 		r.Get("/", getSongList)
 		r.Post("/", addSong)
-		r.Get("/{songId}", getSongs)
+		r.Get("/{songId}", getSong)
 		r.Patch("/{songId}", patchSong)
 		r.Delete("/{songId}", deleteSong)
 	})
@@ -31,20 +43,19 @@ func NewRouter() *chi.Mux {
 	return router
 }
 
-// ListAccounts godoc
+// GetSongList godoc4
 // @Summary      Get song
 // @Description  Gets song from db
 // @Tags         Songs
-// @Param   sort      query     string     false  "string valid" minValue(0)
+// @Param   sort      query     string     false  "id/group/name/date/text/link"
 // @Param   page      query     int     false  "int > 0"
 // @Param   items      query     int     false  "int > 0"
 // @Produce      json
-// @Success      200 {object} []musiclib.Song "OK"
+// @Success      200 {array} musiclib.Song "OK"
 // @Failure      400  "Bad Request"
 // @Failure      500  "Internal error"
 // @Router       /v1/songs [get]
 func getSongList(w http.ResponseWriter, r *http.Request) {
-
 	conn := db.New()
 	defer conn.Close(context.Background())
 
@@ -87,7 +98,7 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 			})
 		case "date":
 			sort.Slice(songs, func(i, j int) bool {
-				return songs[i].ReleaseDate.Time.Unix() < songs[j].ReleaseDate.Time.Unix()
+				return songs[i].ReleaseDate < songs[j].ReleaseDate
 			})
 		case "text":
 			sort.Slice(songs, func(i, j int) bool {
@@ -138,33 +149,32 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 	}
 	songs = songs[offset:limit]
 
-	jsonResp, err := json.MarshalIndent(songs, "", " ")
-	if err != nil {
-		log.Printf("Encountered error when scanning row: %v", err)
-		http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
-		return
-	}
-	w.Write(jsonResp)
+	encoder := json.NewEncoder(w)
+	encoder.Encode(songs)
 }
 
-// ListAccounts godoc
+// GetSong godoc
 // @Summary      Get song
 // @Description  Gets song from db
 // @Tags         Songs
 // @Produce      json
-// @Success      200 {array} musiclib.Song "OK"
+// @Param   offset      query     int     false  "int >= 0"
+// @Param   limit      query     int     false  "int > 0"
+// @Param   	 songId      path     int     true  "id"
+// @Success      200 {object} musiclib.SongPaginated "OK"
 // @Failure      400  "Bad Request"
 // @Failure      404  "Not Found"
 // @Failure      500  "Internal error"
 // @Router       /v1/songs/{songId} [get]
-func getSongs(w http.ResponseWriter, r *http.Request) {
-
-	id := chi.URLParam(r, "songId")
+func getSong(w http.ResponseWriter, r *http.Request) {
+	paramId := chi.URLParam(r, "songId")
+	paramOffset := r.URL.Query().Get("offset")
+	paramLimit := r.URL.Query().Get("limit")
 	conn := db.New()
 	defer conn.Close(context.Background())
 	var song musiclib.Song
 
-	querySelect, err := conn.Query(context.Background(), "select * from songs where songId = "+id)
+	querySelect, err := conn.Query(context.Background(), "select * from songs where songId = "+paramId)
 	if err != nil {
 		log.Printf("Encountered error when trying to get song list: %v", err)
 		http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
@@ -178,21 +188,73 @@ func getSongs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	if song.Id == "" {
 		http.Error(w, "404 Not found", 404)
 		return
 	}
-	songJson, err := json.Marshal(song)
-	w.Write(songJson)
+
+	presplit := song.Text
+	splitter := `\n`
+	textParsed := strings.Split(presplit, splitter)
+	textParsed = removeEmptyStrings(textParsed)
+	fmt.Printf("len(splitted): %v\n", len(textParsed))
+
+	songPaginated := musiclib.SongPaginated{
+		Id:          song.Id,
+		Group:       song.Group,
+		Name:        song.Name,
+		ReleaseDate: song.ReleaseDate,
+		Text:        textParsed,
+		Link:        song.Link,
+	}
+
+	offset := 0
+	limit := 3
+
+	if paramOffset != "" {
+		offset, err = strconv.Atoi(paramOffset)
+		if err != nil {
+			offset = 0
+		}
+		if offset < 0 {
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+
+	}
+
+	if paramLimit != "" {
+		limit, err = strconv.Atoi(paramLimit)
+		if err != nil {
+			limit = 3
+		}
+		if limit <= 0 {
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+	}
+
+	limit = offset + limit
+
+	if limit > len(songPaginated.Text) {
+		limit = len(songPaginated.Text)
+	}
+	if offset > len(songPaginated.Text) {
+		offset = len(songPaginated.Text)
+	}
+	songPaginated.Text = songPaginated.Text[offset:limit]
+
+	encoder := json.NewEncoder(w)
+	encoder.Encode(songPaginated)
+
 }
 
-// ListAccounts godoc
+// AddSong godoc
 // @Summary      Post song
 // @Description  Posts song to db
 // @Tags         Songs
 // @Accept       json
-// @Param 		 json body string true "Song JSON Object" SchemaExample({\n\t"group":"Johnny Mercer",\n\t"name":"Personality",\n\t"releaseDate":"1946-12-14",\n\t"text":"When Madam Pompadour was on a ballroom floor\n\tSaid all the gentlemen, "Obviously"\n\t"The madam has the cutest personality"\n\tAnd think of all the books about do Barry's looks\n\tWhat was it made her the toast of Paree?\n\tShe had a well-developed personality",\n\t"https://www.youtube.com/watch?v=c1L6ZdbL5a0":"rer"\n})
+// @Param 		 json body string true "Song JSON Object" SchemaExample({"group":"sample", "name":"mamedsd", "releaseDate":"2030-12-12", "text":"ss", "link":"sss"})
 // @Produce      json
 // @Success      200  "OK"
 // @Failure      400  "Bad Request"
@@ -201,61 +263,131 @@ func getSongs(w http.ResponseWriter, r *http.Request) {
 // @Router       /v1/songs [post]
 func addSong(w http.ResponseWriter, r *http.Request) {
 
+	log.Printf("POST /v1/songs request from %v", r.Host)
 	conn := db.New()
 	defer conn.Close(context.Background())
 
-	var song musiclib.SongPost
+	var songPost musiclib.SongPost
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&song)
+	err := decoder.Decode(&songPost)
 	if err != nil {
-		log.Printf("POST /songs: Error while decoding JSON: %+v\n", err)
+		log.Printf("Error while decoding JSON: %+v\n", err)
 		http.Error(w, "Invalid JSON data", 400)
 		return
 	}
-	fmt.Printf("song: %+v\n", song)
-	if !isPostValid(song) {
-		log.Printf("POST /songs: Invalid JSON data: %+v\n", err)
+	fmt.Printf("song: %+v\n", songPost)
+	if !isPostValid(songPost) {
+		log.Printf("Invalid JSON data: %+v\n", err)
 		http.Error(w, "Invalid JSON data", 400)
 		return
 	}
 	if decoder.More() {
-		log.Printf("POST /songs: Additional data")
+		log.Printf("Additional data")
 		http.Error(w, "Additional data", 400)
 		return
 	}
 
 	var exists bool
-	queryRows := conn.QueryRow(context.Background(), "select exists(select 1 from songs where groupName=$1 and songName=$2)", song.Group, song.Name)
+	queryRows := conn.QueryRow(context.Background(), "select exists(select 1 from songs where groupName=$1 and songName=$2)", *songPost.Group, *songPost.Name)
 	queryRows.Scan(&exists)
 	if exists {
-		log.Printf("POST /songs: Song already exists")
+		log.Printf("Song already exists")
 		http.Error(w, "Song already exists", 409)
 		return
 	}
-	_, err = conn.Exec(context.Background(), "insert into songs (groupName, songName, releaseDate, songText, songLink) values ('$1','$2','$3','$4','$5')", song.Group, song.Name, song.ReleaseDate, song.Text, song.Link)
+
+	_, err = conn.Exec(context.Background(), `insert into songs (groupName, songName, releaseDate, songText, songLink) values ($1,$2,$3,$4,$5)`, *songPost.Group, *songPost.Name, *songPost.ReleaseDate, *songPost.Text, *songPost.Link)
 	if err != nil {
 		log.Printf("Encountered error when trying to insert song data: %v", err)
 		http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
 		return
 	}
+
 	w.WriteHeader(200)
 
 }
 
-func postSong(w http.ResponseWriter, r *http.Request) {
-
-}
-
+// PatchSong godoc
+// @Summary      Patch song
+// @Description  Patch song from db
+// @Tags         Songs
+// @Produce      json
+// @Param 		 json body string true "Song JSON Object" SchemaExample({"group":"Patched", "name":"PatchedName", "releaseDate":"2023-12-12", "text":"PatchedText", "link":"PatchedLink"})
+// @Param   	 songId      path     int     true  "id"
+// @Success      200  "OK"
+// @Failure      400  "Bad Request"
+// @Failure      404  "Not Found"
+// @Failure      500  "Internal error"
+// @Router       /v1/songs/{songId} [patch]
 func patchSong(w http.ResponseWriter, r *http.Request) {
+	conn := db.New()
+	defer conn.Close(context.Background())
 
+	paramId := chi.URLParam(r, "songId")
+	fmt.Printf("paramId: %v\n", paramId)
+
+	var exists bool
+	queryRows := conn.QueryRow(context.Background(), "select exists(select 1 from songs where songId = $1)", paramId)
+	queryRows.Scan(&exists)
+	if !exists {
+		log.Printf("Song does not exist")
+		http.Error(w, "Song does not exist", 400)
+		return
+	}
+
+	var patchRequest musiclib.SongPatch
+	var patchedObject musiclib.SongPatch
+	queryObj := conn.QueryRow(context.Background(), "select groupName, songName, releaseDate, songText, songLink from songs where songId = "+paramId)
+	err := queryObj.Scan(&patchedObject.Group, &patchedObject.Name, &patchedObject.ReleaseDate, &patchedObject.Text, &patchedObject.Link)
+	if err != nil {
+		log.Println("Error while scanning object: ", err)
+		http.Error(w, "Error while patching", 500)
+		return
+	}
+	fmt.Printf("patchedObject: %+v\n", patchedObject)
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&patchRequest)
+	if err != nil {
+		log.Println("Error while decoding body: ", err)
+		http.Error(w, "Error while patching", 500)
+		return
+	}
+	fmt.Printf("patchRequest: %+v\n", patchRequest)
+
+	if patchRequest.Group != "" {
+		patchedObject.Group = patchRequest.Group
+	}
+	if patchRequest.Name != "" {
+		patchedObject.Name = patchRequest.Name
+	}
+	if patchRequest.ReleaseDate != "" {
+		patchedObject.ReleaseDate = patchRequest.ReleaseDate
+	}
+	if patchRequest.Text != "" {
+		patchedObject.Text = patchRequest.Text
+	}
+	if patchRequest.Link != "" {
+		patchedObject.Link = patchRequest.Link
+	}
+
+	fmt.Printf("after patch: %+v\n", patchedObject)
+
+	_, err = conn.Exec(context.Background(), `update songs set groupName = $1, songName = $2, releaseDate = $3, songText = $4, songLink = $5 where songId = $6`, patchedObject.Group, patchedObject.Name, patchedObject.ReleaseDate, patchedObject.Text, patchedObject.Link, paramId)
+	if err != nil {
+		log.Println("Error while updating patch object: ", err)
+		http.Error(w, "Error while patching", 500)
+		return
+	}
+	w.WriteHeader(200)
 }
 
-// ListAccounts godoc
+// DeleteSong godoc
 // @Summary      Delete song
 // @Description  deletes song from db
 // @Tags         Songs
 // @Produce      json
+// @Param   	 songId      path     int     true  "id"
 // @Success      200,204 "OK"
 // @Failure      400  "Bad Request"
 // @Failure      404  "Not Found"
@@ -267,24 +399,14 @@ func deleteSong(w http.ResponseWriter, r *http.Request) {
 	conn := db.New()
 	defer conn.Close(context.Background())
 
-	exists, err := isRowExists(conn, "songId", id)
-	if err != nil {
-		log.Print(err)
-		http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
-		return
-	}
-	_, err = conn.Exec(context.Background(), "delete from songs where songId = $1", id)
+	_, err := conn.Exec(context.Background(), "delete from songs where songId = $1", id)
 	if err != nil {
 		log.Printf("Encountered error when trying to delete data: %v", err)
 
 		return
 	}
 
-	if exists {
-		w.WriteHeader(200)
-	} else {
-		w.WriteHeader(204)
-	}
+	w.WriteHeader(204)
 
 }
 
@@ -322,4 +444,15 @@ func isPostValid(patch musiclib.SongPost) bool {
 	}
 
 	return true
+}
+
+func removeEmptyStrings(arr []string) []string {
+	var newArr []string
+	for i := range arr {
+		if arr[i] != "" {
+			strings.TrimSpace(arr[i])
+			newArr = append(newArr, arr[i])
+		}
+	}
+	return newArr
 }

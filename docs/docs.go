@@ -28,7 +28,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "string valid",
+                        "description": "id/group/name/date/text/link",
                         "name": "sort",
                         "in": "query"
                     },
@@ -83,7 +83,7 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "type": "string",
-                            "example": "{\n\t\"group\":\"Johnny Mercer\",\n\t\"name\":\"Personality\",\n\t\"releaseDate\":\"1946-12-14\",\n\t\"text\":\"When Madam Pompadour was on a ballroom floor\n\tSaid all the gentlemen, \"Obviously\"\n\t\"The madam has the cutest personality\"\n\tAnd think of all the books about do Barry's looks\n\tWhat was it made her the toast of Paree?\n\tShe had a well-developed personality\",\n\t\"https://www.youtube.com/watch?v=c1L6ZdbL5a0\":\"rer\"\n}"
+                            "example": "{\"group\":\"sample\", \"name\":\"mamedsd\", \"releaseDate\":\"2030-12-12\", \"text\":\"ss\", \"link\":\"sss\"}"
                         }
                     }
                 ],
@@ -113,14 +113,32 @@ const docTemplate = `{
                     "Songs"
                 ],
                 "summary": "Get song",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "int \u003e= 0",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "int \u003e 0",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "songId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/musiclib.Song"
-                            }
+                            "$ref": "#/definitions/musiclib.SongPaginated"
                         }
                     },
                     "400": {
@@ -143,11 +161,63 @@ const docTemplate = `{
                     "Songs"
                 ],
                 "summary": "Delete song",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "songId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK"
                     },
                     "204": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "description": "Internal error"
+                    }
+                }
+            },
+            "patch": {
+                "description": "Patch song from db",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Songs"
+                ],
+                "summary": "Patch song",
+                "parameters": [
+                    {
+                        "description": "Song JSON Object",
+                        "name": "json",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "{\"group\":\"Patched\", \"name\":\"PatchedName\", \"releaseDate\":\"2023-12-12\", \"text\":\"PatchedText\", \"link\":\"PatchedLink\"}"
+                        }
+                    },
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "songId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
                         "description": "OK"
                     },
                     "400": {
@@ -180,39 +250,38 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "releaseDate": {
-                    "$ref": "#/definitions/pgtype.Date"
+                    "type": "string"
                 },
                 "text": {
                     "type": "string"
                 }
             }
         },
-        "pgtype.Date": {
+        "musiclib.SongPaginated": {
             "type": "object",
             "properties": {
-                "infinityModifier": {
-                    "$ref": "#/definitions/pgtype.InfinityModifier"
-                },
-                "time": {
+                "group": {
                     "type": "string"
                 },
-                "valid": {
-                    "type": "boolean"
+                "id": {
+                    "type": "string"
+                },
+                "link": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "releaseDate": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
-        },
-        "pgtype.InfinityModifier": {
-            "type": "integer",
-            "enum": [
-                1,
-                0,
-                -1
-            ],
-            "x-enum-varnames": [
-                "Infinity",
-                "Finite",
-                "NegativeInfinity"
-            ]
         }
     }
 }`
@@ -222,7 +291,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "0.1",
 	Host:             "localhost:8000",
 	BasePath:         "/api/",
-	Schemes:          []string{},
+	Schemes:          []string{"http"},
 	Title:            "MusicLib",
 	Description:      "This is a simple swagger for musiclib.",
 	InfoInstanceName: "swagger",

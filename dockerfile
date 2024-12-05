@@ -8,6 +8,6 @@ COPY .env /app
 
 RUN go get -d ./...
 
-RUN go build -o app ./cmd/server/main.go
+RUN go build -o app ./cmd/server/main.go 
 
 CMD [ "./app" ]

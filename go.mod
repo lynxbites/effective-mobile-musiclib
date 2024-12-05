@@ -3,11 +3,12 @@ module github.com/lynxbites/musiclib
 go 1.23.2
 
 require (
-	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/go-chi/cors v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.18.1
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/joho/godotenv v1.5.1
+	github.com/spf13/pflag v1.0.5
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/http-swagger/example/go-chi v0.0.0-20240815064334-3a7ae3083475
 	github.com/swaggo/http-swagger/v2 v2.0.2
