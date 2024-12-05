@@ -17,30 +17,30 @@ const docTemplate = `{
     "paths": {
         "/v1/songs": {
             "get": {
-                "description": "Gets song from db",
+                "description": "Gets list of songs from DB, with filters and pagination.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Songs"
                 ],
-                "summary": "Get song",
+                "summary": "Get songs",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "id/group/name/date/text/link",
-                        "name": "sort",
+                        "description": "Filter by id, group, name, date, text or link.",
+                        "name": "filter",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "int \u003e 0",
+                        "description": "Number of the page.",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "int \u003e 0",
+                        "description": "How many items to display per page.",
                         "name": "items",
                         "in": "query"
                     }
@@ -64,7 +64,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Posts song to db",
+                "description": "Post song to DB.",
                 "consumes": [
                     "application/json"
                 ],
@@ -83,7 +83,7 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "type": "string",
-                            "example": "{\"group\":\"sample\", \"name\":\"mamedsd\", \"releaseDate\":\"2030-12-12\", \"text\":\"ss\", \"link\":\"sss\"}"
+                            "example": "{\"group\":\"Author name\", \"name\":\"Song name\", \"releaseDate\":\"2024-12-12\", \"text\":\"Lyrics\", \"link\":\"Link\"}"
                         }
                     }
                 ],
@@ -105,7 +105,7 @@ const docTemplate = `{
         },
         "/v1/songs/{songId}": {
             "get": {
-                "description": "Gets song from db",
+                "description": "Get a song from DB, with pagination for verses.",
                 "produces": [
                     "application/json"
                 ],
@@ -116,19 +116,19 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "int \u003e= 0",
+                        "description": "Verse offset.",
                         "name": "offset",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "int \u003e 0",
+                        "description": "How many verses to display.",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "id",
+                        "description": "Id of the song.",
                         "name": "songId",
                         "in": "path",
                         "required": true
@@ -153,7 +153,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "deletes song from db",
+                "description": "Delete song from DB.",
                 "produces": [
                     "application/json"
                 ],
@@ -164,7 +164,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "id",
+                        "description": "Id of a song to delete",
                         "name": "songId",
                         "in": "path",
                         "required": true
@@ -180,16 +180,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request"
                     },
-                    "404": {
-                        "description": "Not Found"
-                    },
                     "500": {
                         "description": "Internal error"
                     }
                 }
             },
             "patch": {
-                "description": "Patch song from db",
+                "description": "Update song specified by id.",
                 "produces": [
                     "application/json"
                 ],
@@ -210,7 +207,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "id",
+                        "description": "Id of a song to patch.",
                         "name": "songId",
                         "in": "path",
                         "required": true

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,13 +45,13 @@ func NewRouter() *chi.Mux {
 	return router
 }
 
-// GetSongList godoc4
-// @Summary      Get song
-// @Description  Gets song from db
+// GetSongList godoc
+// @Summary      Get songs
+// @Description  Gets list of songs from DB, with filters and pagination.
 // @Tags         Songs
-// @Param   sort      query     string     false  "id/group/name/date/text/link"
-// @Param   page      query     int     false  "int > 0"
-// @Param   items      query     int     false  "int > 0"
+// @Param   filter      query     string     false  "Filter by id, group, name, date, text or link."
+// @Param   page      query     int     false 	"Number of the page."
+// @Param   items      query     int     false 	"How many items to display per page."
 // @Produce      json
 // @Success      200 {array} musiclib.Song "OK"
 // @Failure      400  "Bad Request"
@@ -77,13 +79,13 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 		songs = append(songs, song)
 	}
 
-	paramSort := r.URL.Query().Get("sort")
+	paramFilter := r.URL.Query().Get("filter")
 	paramPage := r.URL.Query().Get("page")
 	paramItems := r.URL.Query().Get("items")
 
-	if paramSort != "" {
+	if paramFilter != "" {
 
-		switch paramSort {
+		switch paramFilter {
 		case "id":
 			sort.Slice(songs, func(i, j int) bool {
 				return songs[i].Id < songs[j].Id
@@ -155,12 +157,12 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 
 // GetSong godoc
 // @Summary      Get song
-// @Description  Gets song from db
+// @Description  Get a song from DB, with pagination for verses.
 // @Tags         Songs
 // @Produce      json
-// @Param   offset      query     int     false  "int >= 0"
-// @Param   limit      query     int     false  "int > 0"
-// @Param   	 songId      path     int     true  "id"
+// @Param   offset      query     int     false 	"Verse offset."
+// @Param   limit      query     int     false		"How many verses to display."
+// @Param   	 songId      path     int     true  "Id of the song."
 // @Success      200 {object} musiclib.SongPaginated "OK"
 // @Failure      400  "Bad Request"
 // @Failure      404  "Not Found"
@@ -251,10 +253,10 @@ func getSong(w http.ResponseWriter, r *http.Request) {
 
 // AddSong godoc
 // @Summary      Post song
-// @Description  Posts song to db
+// @Description  Post song to DB.
 // @Tags         Songs
 // @Accept       json
-// @Param 		 json body string true "Song JSON Object" SchemaExample({"group":"sample", "name":"mamedsd", "releaseDate":"2030-12-12", "text":"ss", "link":"sss"})
+// @Param 		 json body string true "Song JSON Object" SchemaExample({"group":"Author name", "name":"Song name", "releaseDate":"2024-12-12", "text":"Lyrics", "link":"Link"})
 // @Produce      json
 // @Success      200  "OK"
 // @Failure      400  "Bad Request"
@@ -306,15 +308,27 @@ func addSong(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 
+	//Get /info request // Я так и не понял что от меня требуется во втором задании, извиняюсь за недопонимание :C
+	requestString := *songPost.Group + "&" + "name=" + *songPost.Name
+	request, err := http.Get("https://example.com/info?group=" + url.QueryEscape(requestString))
+	if err != nil {
+		log.Printf("Encountered error when requesting /info: %v", err)
+	}
+	fmt.Printf("request status: %v\n", request.Status)
+	body, err := io.ReadAll(request.Body)
+	if err != nil {
+		log.Printf("/info body read error: %v", err)
+	}
+	fmt.Printf("request body: %v\n", string(body))
 }
 
 // PatchSong godoc
 // @Summary      Patch song
-// @Description  Patch song from db
+// @Description  Update song specified by id.
 // @Tags         Songs
 // @Produce      json
 // @Param 		 json body string true "Song JSON Object" SchemaExample({"group":"Patched", "name":"PatchedName", "releaseDate":"2023-12-12", "text":"PatchedText", "link":"PatchedLink"})
-// @Param   	 songId      path     int     true  "id"
+// @Param   	 songId      path     int     true  "Id of a song to patch."
 // @Success      200  "OK"
 // @Failure      400  "Bad Request"
 // @Failure      404  "Not Found"
@@ -384,25 +398,34 @@ func patchSong(w http.ResponseWriter, r *http.Request) {
 
 // DeleteSong godoc
 // @Summary      Delete song
-// @Description  deletes song from db
+// @Description  Delete song from DB.
 // @Tags         Songs
 // @Produce      json
-// @Param   	 songId      path     int     true  "id"
+// @Param   	 songId      path     int     true  "Id of a song to delete"
 // @Success      200,204 "OK"
 // @Failure      400  "Bad Request"
-// @Failure      404  "Not Found"
 // @Failure      500  "Internal error"
 // @Router       /v1/songs/{songId} [delete]
 func deleteSong(w http.ResponseWriter, r *http.Request) {
 
-	id := chi.URLParam(r, "songId")
+	paramId := chi.URLParam(r, "songId")
+	idInt, err := strconv.Atoi(paramId)
+	if err != nil {
+		log.Printf("Bad request")
+		http.Error(w, "Bad request", 400)
+	}
+	if idInt <= 0 {
+		log.Printf("Bad request")
+		http.Error(w, "Bad request", 400)
+	}
+
 	conn := db.New()
 	defer conn.Close(context.Background())
 
-	_, err := conn.Exec(context.Background(), "delete from songs where songId = $1", id)
+	_, err = conn.Exec(context.Background(), "delete from songs where songId = $1", paramId)
 	if err != nil {
 		log.Printf("Encountered error when trying to delete data: %v", err)
-
+		http.Error(w, "Error while deleting", 500)
 		return
 	}
 

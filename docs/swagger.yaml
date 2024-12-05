@@ -41,17 +41,17 @@ info:
 paths:
   /v1/songs:
     get:
-      description: Gets song from db
+      description: Gets list of songs from DB, with filters and pagination.
       parameters:
-      - description: id/group/name/date/text/link
+      - description: Filter by id, group, name, date, text or link.
         in: query
-        name: sort
+        name: filter
         type: string
-      - description: int > 0
+      - description: Number of the page.
         in: query
         name: page
         type: integer
-      - description: int > 0
+      - description: How many items to display per page.
         in: query
         name: items
         type: integer
@@ -68,21 +68,21 @@ paths:
           description: Bad Request
         "500":
           description: Internal error
-      summary: Get song
+      summary: Get songs
       tags:
       - Songs
     post:
       consumes:
       - application/json
-      description: Posts song to db
+      description: Post song to DB.
       parameters:
       - description: Song JSON Object
         in: body
         name: json
         required: true
         schema:
-          example: '{"group":"sample", "name":"mamedsd", "releaseDate":"2030-12-12",
-            "text":"ss", "link":"sss"}'
+          example: '{"group":"Author name", "name":"Song name", "releaseDate":"2024-12-12",
+            "text":"Lyrics", "link":"Link"}'
           type: string
       produces:
       - application/json
@@ -100,9 +100,9 @@ paths:
       - Songs
   /v1/songs/{songId}:
     delete:
-      description: deletes song from db
+      description: Delete song from DB.
       parameters:
-      - description: id
+      - description: Id of a song to delete
         in: path
         name: songId
         required: true
@@ -116,25 +116,23 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "404":
-          description: Not Found
         "500":
           description: Internal error
       summary: Delete song
       tags:
       - Songs
     get:
-      description: Gets song from db
+      description: Get a song from DB, with pagination for verses.
       parameters:
-      - description: int >= 0
+      - description: Verse offset.
         in: query
         name: offset
         type: integer
-      - description: int > 0
+      - description: How many verses to display.
         in: query
         name: limit
         type: integer
-      - description: id
+      - description: Id of the song.
         in: path
         name: songId
         required: true
@@ -156,7 +154,7 @@ paths:
       tags:
       - Songs
     patch:
-      description: Patch song from db
+      description: Update song specified by id.
       parameters:
       - description: Song JSON Object
         in: body
@@ -166,7 +164,7 @@ paths:
           example: '{"group":"Patched", "name":"PatchedName", "releaseDate":"2023-12-12",
             "text":"PatchedText", "link":"PatchedLink"}'
           type: string
-      - description: id
+      - description: Id of a song to patch.
         in: path
         name: songId
         required: true
