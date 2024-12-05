@@ -3,8 +3,9 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
+
+	"github.com/charmbracelet/log"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -21,6 +22,7 @@ var connstr string
 var connstrm string
 
 func init() {
+	log.SetReportCaller(true)
 
 	err := godotenv.Load(".env")
 	if err != nil {
@@ -29,11 +31,11 @@ func init() {
 	var connstrfound bool
 	connstr, connstrfound = os.LookupEnv("CONNSTR")
 	if connstr == "" || connstrfound == false {
-		log.Fatalf("lookup connection string: connection string not specified in .env file")
+		log.Fatal("lookup connection string: connection string not specified in .env file")
 	}
 	connstrm, connstrfound = os.LookupEnv("CONNSTRMIGRATION")
 	if connstr == "" || connstrfound == false {
-		log.Fatalf("lookup connection string: connection string not specified in .env file")
+		log.Fatal("lookup connection string: connection string not specified in .env file")
 	}
 }
 

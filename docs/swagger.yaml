@@ -37,7 +37,7 @@ info:
   contact: {}
   description: This is a simple swagger for musiclib.
   title: MusicLib
-  version: "0.1"
+  version: "0.3"
 paths:
   /v1/songs:
     get:

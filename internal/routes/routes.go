@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/charmbracelet/log"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -21,6 +22,9 @@ import (
 	_ "github.com/swaggo/http-swagger/example/go-chi/docs"
 )
 
+func init() {
+	log.SetReportCaller(true)
+}
 func NewRouter() *chi.Mux {
 
 	router := chi.NewRouter()
@@ -63,7 +67,7 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 
 	query, err := conn.Query(context.Background(), "select * from songs")
 	if err != nil {
-		log.Printf("Encountered error when trying to get song list: %v", err)
+		log.Error("Encountered error when trying to get song list: %v", err)
 		http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
 	}
 
@@ -72,7 +76,7 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 		var song musiclib.Song
 		err := query.Scan(&song.Id, &song.Group, &song.Name, &song.ReleaseDate, &song.Text, &song.Link)
 		if err != nil {
-			log.Printf("Encountered error when scanning row: %v", err)
+			log.Error("Encountered error when scanning row: %v", err)
 			http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
 			return
 		}
@@ -122,6 +126,7 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 			page = 1
 		}
 		if page <= 0 {
+			log.Debug("400 Bad Request")
 			http.Error(w, "Bad Request", 400)
 			return
 		}
@@ -134,6 +139,7 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 			items = 2
 		}
 		if items <= 0 {
+			log.Debug("400 Bad Request")
 			http.Error(w, "Bad Request", 400)
 			return
 		}
@@ -153,6 +159,7 @@ func getSongList(w http.ResponseWriter, r *http.Request) {
 
 	encoder := json.NewEncoder(w)
 	encoder.Encode(songs)
+	log.Debug("200 OK")
 }
 
 // GetSong godoc
@@ -178,19 +185,20 @@ func getSong(w http.ResponseWriter, r *http.Request) {
 
 	querySelect, err := conn.Query(context.Background(), "select * from songs where songId = "+paramId)
 	if err != nil {
-		log.Printf("Encountered error when trying to get song list: %v", err)
+		log.Error("Encountered error when trying to get song list: %v", err)
 		http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
 		return
 	}
 	for querySelect.Next() {
 		err := querySelect.Scan(&song.Id, &song.Group, &song.Name, &song.ReleaseDate, &song.Text, &song.Link)
 		if err != nil {
-			log.Printf("Encountered error when trying to scan query rows: %v", err)
+			log.Error("Encountered error when trying to scan query rows: %v", err)
 			http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
 			return
 		}
 	}
 	if song.Id == "" {
+		log.Debug("404 Not found")
 		http.Error(w, "404 Not found", 404)
 		return
 	}
@@ -199,7 +207,6 @@ func getSong(w http.ResponseWriter, r *http.Request) {
 	splitter := `\n`
 	textParsed := strings.Split(presplit, splitter)
 	textParsed = removeEmptyStrings(textParsed)
-	fmt.Printf("len(splitted): %v\n", len(textParsed))
 
 	songPaginated := musiclib.SongPaginated{
 		Id:          song.Id,
@@ -219,6 +226,7 @@ func getSong(w http.ResponseWriter, r *http.Request) {
 			offset = 0
 		}
 		if offset < 0 {
+			log.Debug("400 Bad Request")
 			http.Error(w, "Bad Request", 400)
 			return
 		}
@@ -231,6 +239,7 @@ func getSong(w http.ResponseWriter, r *http.Request) {
 			limit = 3
 		}
 		if limit <= 0 {
+			log.Debug("400 Bad Request")
 			http.Error(w, "Bad Request", 400)
 			return
 		}
@@ -248,7 +257,7 @@ func getSong(w http.ResponseWriter, r *http.Request) {
 
 	encoder := json.NewEncoder(w)
 	encoder.Encode(songPaginated)
-
+	log.Debug("200 OK")
 }
 
 // AddSong godoc
@@ -264,8 +273,6 @@ func getSong(w http.ResponseWriter, r *http.Request) {
 // @Failure      500  "Internal error"
 // @Router       /v1/songs [post]
 func addSong(w http.ResponseWriter, r *http.Request) {
-
-	log.Printf("POST /v1/songs request from %v", r.Host)
 	conn := db.New()
 	defer conn.Close(context.Background())
 
@@ -274,18 +281,18 @@ func addSong(w http.ResponseWriter, r *http.Request) {
 	decoder.DisallowUnknownFields()
 	err := decoder.Decode(&songPost)
 	if err != nil {
-		log.Printf("Error while decoding JSON: %+v\n", err)
+		log.Debug("400 Bad Request: Error while decoding JSON: %+v\n", err)
 		http.Error(w, "Invalid JSON data", 400)
 		return
 	}
 	fmt.Printf("song: %+v\n", songPost)
 	if !isPostValid(songPost) {
-		log.Printf("Invalid JSON data: %+v\n", err)
+		log.Debug("400 Bad Request: Invalid JSON: %+v\n", err)
 		http.Error(w, "Invalid JSON data", 400)
 		return
 	}
 	if decoder.More() {
-		log.Printf("Additional data")
+		log.Debug("400 Bad Request: Additional data")
 		http.Error(w, "Additional data", 400)
 		return
 	}
@@ -294,30 +301,31 @@ func addSong(w http.ResponseWriter, r *http.Request) {
 	queryRows := conn.QueryRow(context.Background(), "select exists(select 1 from songs where groupName=$1 and songName=$2)", *songPost.Group, *songPost.Name)
 	queryRows.Scan(&exists)
 	if exists {
-		log.Printf("Song already exists")
+		log.Debug("409 No content: Song already exists")
 		http.Error(w, "Song already exists", 409)
 		return
 	}
 
 	_, err = conn.Exec(context.Background(), `insert into songs (groupName, songName, releaseDate, songText, songLink) values ($1,$2,$3,$4,$5)`, *songPost.Group, *songPost.Name, *songPost.ReleaseDate, *songPost.Text, *songPost.Link)
 	if err != nil {
-		log.Printf("Encountered error when trying to insert song data: %v", err)
+		log.Error("Encountered error when trying to insert song data: %v", err)
 		http.Error(w, "Encountered Internal Server Error: "+err.Error(), 500)
 		return
 	}
 
 	w.WriteHeader(200)
+	log.Debug("200 OK")
 
 	//Get /info request // Я так и не понял что от меня требуется во втором задании, извиняюсь за недопонимание :C
 	requestString := *songPost.Group + "&" + "name=" + *songPost.Name
 	request, err := http.Get("https://example.com/info?group=" + url.QueryEscape(requestString))
 	if err != nil {
-		log.Printf("Encountered error when requesting /info: %v", err)
+		log.Error("Encountered error when requesting /info: %v", err)
 	}
 	fmt.Printf("request status: %v\n", request.Status)
 	body, err := io.ReadAll(request.Body)
 	if err != nil {
-		log.Printf("/info body read error: %v", err)
+		log.Error("/info body read error: %v", err)
 	}
 	fmt.Printf("request body: %v\n", string(body))
 }
@@ -335,17 +343,17 @@ func addSong(w http.ResponseWriter, r *http.Request) {
 // @Failure      500  "Internal error"
 // @Router       /v1/songs/{songId} [patch]
 func patchSong(w http.ResponseWriter, r *http.Request) {
+
 	conn := db.New()
 	defer conn.Close(context.Background())
 
 	paramId := chi.URLParam(r, "songId")
-	fmt.Printf("paramId: %v\n", paramId)
 
 	var exists bool
 	queryRows := conn.QueryRow(context.Background(), "select exists(select 1 from songs where songId = $1)", paramId)
 	queryRows.Scan(&exists)
 	if !exists {
-		log.Printf("Song does not exist")
+		log.Debug("400 Bad Request: Song does not exist")
 		http.Error(w, "Song does not exist", 400)
 		return
 	}
@@ -355,7 +363,7 @@ func patchSong(w http.ResponseWriter, r *http.Request) {
 	queryObj := conn.QueryRow(context.Background(), "select groupName, songName, releaseDate, songText, songLink from songs where songId = "+paramId)
 	err := queryObj.Scan(&patchedObject.Group, &patchedObject.Name, &patchedObject.ReleaseDate, &patchedObject.Text, &patchedObject.Link)
 	if err != nil {
-		log.Println("Error while scanning object: ", err)
+		log.Error("Error while scanning object: ", err)
 		http.Error(w, "Error while patching", 500)
 		return
 	}
@@ -363,7 +371,7 @@ func patchSong(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	err = decoder.Decode(&patchRequest)
 	if err != nil {
-		log.Println("Error while decoding body: ", err)
+		log.Error("Error while decoding body: ", err)
 		http.Error(w, "Error while patching", 500)
 		return
 	}
@@ -389,10 +397,11 @@ func patchSong(w http.ResponseWriter, r *http.Request) {
 
 	_, err = conn.Exec(context.Background(), `update songs set groupName = $1, songName = $2, releaseDate = $3, songText = $4, songLink = $5 where songId = $6`, patchedObject.Group, patchedObject.Name, patchedObject.ReleaseDate, patchedObject.Text, patchedObject.Link, paramId)
 	if err != nil {
-		log.Println("Error while updating patch object: ", err)
+		log.Error("Error while updating patch object: ", err)
 		http.Error(w, "Error while patching", 500)
 		return
 	}
+	log.Debug("200 OK")
 	w.WriteHeader(200)
 }
 
@@ -411,11 +420,11 @@ func deleteSong(w http.ResponseWriter, r *http.Request) {
 	paramId := chi.URLParam(r, "songId")
 	idInt, err := strconv.Atoi(paramId)
 	if err != nil {
-		log.Printf("Bad request")
+		log.Debug("400 Bad request")
 		http.Error(w, "Bad request", 400)
 	}
 	if idInt <= 0 {
-		log.Printf("Bad request")
+		log.Debug("400 Bad request")
 		http.Error(w, "Bad request", 400)
 	}
 
@@ -424,11 +433,11 @@ func deleteSong(w http.ResponseWriter, r *http.Request) {
 
 	_, err = conn.Exec(context.Background(), "delete from songs where songId = $1", paramId)
 	if err != nil {
-		log.Printf("Encountered error when trying to delete data: %v", err)
+		log.Error("Encountered error when trying to delete data: %v", err)
 		http.Error(w, "Error while deleting", 500)
 		return
 	}
-
+	log.Debug("204 No Content")
 	w.WriteHeader(204)
 
 }
