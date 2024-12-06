@@ -11,10 +11,10 @@ API полностью описано сваггером, сваггер хос�
 
     make compose
 ## Libraries
-github.com/go-chi/chi - Удобный и простой роутер.
-github.com/jackc/pgx - Нативный драйвер для PostgreSQL.
-github.com/golang-migrate/migrate - Библиотека для миграции баз данных SQL.
-https://github.com/swaggo/swag - Генерация документации.
-github.com/charmbracelet/log - Логгер.
-github.com/joho/godotenv - Загружает переменные среды из .env файла.
+[github.com/go-chi/chi](https://github.com/go-chi/chi) - Удобный и простой роутер.\
+[github.com/jackc/pgx](https://github.com/jackc/pgx) - Нативный драйвер для PostgreSQL.\
+[github.com/golang-migrate/migrate](https://github.com/golang-migrate/migrate) - Библиотека для миграции баз данных SQL.\
+[github.com/swaggo/swag](https://github.com/swaggo/swag) - Генерация документации.\
+[github.com/charmbracelet/log](https://github.com/charmbracelet/log) - Логгер.\
+[github.com/joho/godotenv](https://github.com/joho/godotenv) - Загружает переменные среды из .env файла.
 
