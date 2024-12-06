@@ -53,9 +53,9 @@ func main() {
 	}
 	m.Up()
 
-	log.Info("Starting Swagger server...")
 	go http.ListenAndServe(":8001", routerSwagger)
-	log.Info("Starting API...")
+	log.Info("Go to: http://localhost:8001/doc/index.html to open Swagger")
+	log.Info("API is listening on localhost:8000")
 	http.ListenAndServe(":8000", router)
 
 }
